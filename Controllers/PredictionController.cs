@@ -1,12 +1,33 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Lorincz_Denisa_Lab4;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.ML;
+using Lorincz_Denisa_Lab4;
+using Lorincz_Denisa_Lab4.Data;
+using Lorincz_Denisa_Lab4.Models;
+using System;
 
 namespace Lorincz_Denisa_Lab4.Controllers
 {
     public class PredictionController : Controller
     {
-        // --- Pricee Prediction ---
-        public IActionResult Price(PricePredictionModel.ModelInput input)
+
+        private readonly AppDbContext _context;
+
+        public PredictionController(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public IActionResult Price()
+        {
+            return View(new Lorincz_Denisa_Lab4.PricePredictionModel.ModelInput());
+        }
+
+        // --- Price Prediction ---
+        [HttpPost]
+        public async Task<IActionResult> Price(PricePredictionModel.ModelInput input)
         {
             MLContext mlContext = new MLContext();
 
@@ -18,10 +39,33 @@ namespace Lorincz_Denisa_Lab4.Controllers
 
             ViewBag.Price = result.Score;
 
+            var history = new PredictionHistory
+            {
+                PassengerCount = input.Passenger_count,
+                TripTimeInSecs = input.Trip_time_in_secs,
+                TripDistance = input.Trip_distance,
+                PaymentType = input.Payment_type,
+                PredictedPrice = result.Score,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.PredictionHistories.Add(history);
+            await _context.SaveChangesAsync();
+
             return View(input);
+
         }
 
-         //--- Time Prediction ---
+        [HttpGet]
+        public async Task<IActionResult> History()
+        {
+            var history = await _context.PredictionHistories
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+            return View(history);
+        }
+
+        // --- Time Prediction ---
         public IActionResult Time(TimePredictionModel.ModelInput input)
         {
             MLContext mlContext = new MLContext();
@@ -33,6 +77,8 @@ namespace Lorincz_Denisa_Lab4.Controllers
             TimePredictionModel.ModelOutput result = predEngine.Predict(input);
 
             ViewBag.Time = result.Score;
+
+
 
             return View(input);
         }

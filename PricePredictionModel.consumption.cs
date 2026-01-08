@@ -5,6 +5,7 @@ using System;
 using System.Linq;
 using System.IO;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 namespace Lorincz_Denisa_Lab4
 {
     public partial class PricePredictionModel
@@ -23,17 +24,23 @@ namespace Lorincz_Denisa_Lab4
             [ColumnName(@"rate_code")]
             public float Rate_code { get; set; }
 
-            [LoadColumn(2)]
-            [ColumnName(@"passenger_count")]
+            [ColumnName("passenger_count")]
+            [LoadColumn(0)]
+            [Range(1, 6, ErrorMessage = "Numărul de pasageri trebuie să fie între 1 şi 6.")]
             public float Passenger_count { get; set; }
+
+            [ColumnName("trip_distance")]
+            [LoadColumn(4)]
+            [Range(0.1, 1000, ErrorMessage = "Distanţa trebuie să fie pozitivă.")]
+            public float Trip_distance { get; set; }
+
+
 
             [LoadColumn(3)]
             [ColumnName(@"trip_time_in_secs")]
             public float Trip_time_in_secs { get; set; }
 
-            [LoadColumn(4)]
-            [ColumnName(@"trip_distance")]
-            public float Trip_distance { get; set; }
+
 
             [LoadColumn(5)]
             [ColumnName(@"payment_type")]
