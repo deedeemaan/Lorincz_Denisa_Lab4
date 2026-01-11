@@ -1,86 +1,56 @@
-﻿using Lorincz_Denisa_Lab4;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.ML;
-using Lorincz_Denisa_Lab4;
 using Lorincz_Denisa_Lab4.Data;
-using Lorincz_Denisa_Lab4.Models;
-using System;
 
-namespace Lorincz_Denisa_Lab4.Controllers
+public class PredictionController : Controller
 {
-    public class PredictionController : Controller
+    private readonly AppDbContext _context;
+
+    public PredictionController(AppDbContext context)
     {
+        _context = context;
+    }
 
-        private readonly AppDbContext _context;
+    [HttpGet]
+    public async Task<IActionResult> History(
+        string? paymentType,
+        float? minPrice,
+        float? maxPrice,
+        string? sortOrder)
+    {
+        var query = _context.PredictionHistories.AsQueryable();
 
-        public PredictionController(AppDbContext context)
+        // filtrare tip plata
+        if (!string.IsNullOrEmpty(paymentType))
         {
-            _context = context;
+            query = query.Where(p => p.PaymentType == paymentType);
         }
 
-        [HttpGet]
-        public IActionResult Price()
+        // filtrare pret
+        if (minPrice.HasValue)
         {
-            return View(new Lorincz_Denisa_Lab4.PricePredictionModel.ModelInput());
+            query = query.Where(p => p.PredictedPrice >= minPrice.Value);
         }
 
-        // --- Price Prediction ---
-        [HttpPost]
-        public async Task<IActionResult> Price(PricePredictionModel.ModelInput input)
+        if (maxPrice.HasValue)
         {
-            MLContext mlContext = new MLContext();
-
-            ITransformer mlModel = mlContext.Model.Load(@"PricePredictionModel.mlnet", out var modelInputSchema);
-
-            var predEngine = mlContext.Model.CreatePredictionEngine<PricePredictionModel.ModelInput, PricePredictionModel.ModelOutput>(mlModel);
-
-            PricePredictionModel.ModelOutput result = predEngine.Predict(input);
-
-            ViewBag.Price = result.Score;
-
-            var history = new PredictionHistory
-            {
-                PassengerCount = input.Passenger_count,
-                TripTimeInSecs = input.Trip_time_in_secs,
-                TripDistance = input.Trip_distance,
-                PaymentType = input.Payment_type,
-                PredictedPrice = result.Score,
-                CreatedAt = DateTime.Now
-            };
-
-            _context.PredictionHistories.Add(history);
-            await _context.SaveChangesAsync();
-
-            return View(input);
-
+            query = query.Where(p => p.PredictedPrice <= maxPrice.Value);
         }
 
-        [HttpGet]
-        public async Task<IActionResult> History()
+        // sortare pret (optional / conform punctului 3 din PDF)
+        query = sortOrder switch
         {
-            var history = await _context.PredictionHistories
-                .OrderByDescending(p => p.CreatedAt)
-                .ToListAsync();
-            return View(history);
-        }
+            "price_asc" => query.OrderBy(p => p.PredictedPrice),
+            "price_desc" => query.OrderByDescending(p => p.PredictedPrice),
+            _ => query.OrderBy(p => p.PredictedPrice) // default ca in PDF
+        };
 
-        // --- Time Prediction ---
-        public IActionResult Time(TimePredictionModel.ModelInput input)
-        {
-            MLContext mlContext = new MLContext();
+        ViewBag.CurrentPaymentType = paymentType;
+        ViewBag.CurrentMinPrice = minPrice;
+        ViewBag.CurrentMaxPrice = maxPrice;
+        ViewBag.CurrentSortOrder = sortOrder;
 
-            ITransformer mlModel = mlContext.Model.Load("TimePredictionModel.mlnet", out var modelInputSchema);
-
-            var predEngine = mlContext.Model.CreatePredictionEngine<TimePredictionModel.ModelInput, TimePredictionModel.ModelOutput>(mlModel);
-
-            TimePredictionModel.ModelOutput result = predEngine.Predict(input);
-
-            ViewBag.Time = result.Score;
-
-
-
-            return View(input);
-        }
+        var result = await query.ToListAsync();
+        return View(result);
     }
 }
