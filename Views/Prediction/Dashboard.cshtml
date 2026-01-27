@@ -1,0 +1,89 @@
+﻿@model DashboardViewModel
+@using System.Text.Json
+
+<h2>Dashboard predicții</h2>
+
+<form method="get" asp-action="Dashboard" class="row g-3 mb-3">
+    <div class="col-md-3">
+        <label class="form-label">De la data</label>
+        <input type="date" name="fromDate" class="form-control"
+               value="@(Model.FromDate?.ToString("yyyy-MM-dd") ?? "")" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Până la data</label>
+        <input type="date" name="toDate" class="form-control"
+               value="@(Model.ToDate?.ToString("yyyy-MM-dd") ?? "")" />
+    </div>
+    <div class="col-md-2 align-self-end">
+        <button type="submit" class="btn btn-primary w-100">Filtrează</button>
+    </div>
+</form>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Număr total predicții</h5>
+                <p class="display-6">@Model.TotalPredictions</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Preț mediu per tip de plată</h5>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Tip plată</th>
+                            <th>Număr</th>
+                            <th>Preț mediu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.PaymentTypeStats)
+                        {
+                            <tr>
+                                <td>@item.PaymentType</td>
+                                <td>@item.Count</td>
+                                <td>@item.AveragePrice.ToString("0.00")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Distribuția prețurilor</h5>
+        <canvas id="priceChart"></canvas>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const labels = @Html.Raw(JsonSerializer.Serialize(Model.PriceBuckets.Select(b => b.Label)));
+        const dataValues = @Html.Raw(JsonSerializer.Serialize(Model.PriceBuckets.Select(b => b.Count)));
+
+        new Chart(document.getElementById('priceChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Număr predicții',
+                    data: dataValues
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+}
